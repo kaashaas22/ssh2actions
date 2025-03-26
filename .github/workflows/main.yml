@@ -1,0 +1,30 @@
+name: SSH-to-Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  connect-to-ssh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start SSH Server
+        run: |
+          sudo apt update && sudo apt install -y openssh-server
+          sudo systemctl start ssh
+          sudo systemctl enable ssh
+          echo "root:root" | sudo chpasswd
+          mkdir -p ~/.ssh
+          touch ~/.ssh/authorized_keys
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" >> ~/.ssh/authorized_keys
+          sudo systemctl restart ssh
+
+      - name: Install Ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
+          ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          ngrok tcp 22 > /dev/null &
+          sleep 10
+          echo "SSH Ready! Check Ngrok dashboard for connection details."
+
